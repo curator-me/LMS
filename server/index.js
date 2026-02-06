@@ -1,9 +1,11 @@
-const express = require("express");
-const cors = require("cors");
-require("dotenv").config();
+import express from "express";
+import cors from "cors";
+import "dotenv/config";
 
-const { connectDB } = require("./database/connectDb");
-const userRouter = require("./routes/user");
+import { connectDB } from "./database/connectDb.js";
+import userRouter from "./routes/user.js";
+import courseRouter from "./routes/course.js";
+
 
 const app = express();
 const port = 8000;
@@ -12,8 +14,9 @@ const port = 8000;
 app.use(express.json());
 app.use(
   cors({
-    origin: "http://localhost:5173",
+    origin: ["http://localhost:5173", "http://localhost:5174", "http://localhost:5175"],
   })
+
 );
 
 async function startServer() {
@@ -28,6 +31,8 @@ async function startServer() {
     });
 
     app.use("/user", userRouter);
+    app.use("/course", courseRouter);
+
 
     if (process.env.NODE_ENV !== "test") {
       app.listen(port, () => {
@@ -42,4 +47,4 @@ async function startServer() {
 
 startServer();
 
-module.exports = app;
+export default app;
