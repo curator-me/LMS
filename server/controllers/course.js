@@ -27,8 +27,8 @@ export async function getCourseById(req, res) {
       return res.status(404).json({ message: "Course not found" });
     }
 
-    const materials = await materialsCollection.find({ 
-      _id: { $in: course.materials.map(mId => new ObjectId(mId)) } 
+    const materials = await materialsCollection.find({
+      _id: { $in: (course.materials || []).map(mId => new ObjectId(mId)) }
     }).sort({ order: 1 }).toArray();
 
     res.json({ ...course, materials });
@@ -40,8 +40,9 @@ export async function getCourseById(req, res) {
 // Instructor uploads course
 export async function uploadCourse(req, res) {
   try {
-    const { title, description, price, instructorId, instructorBankAccount, category, level, language } = req.body;
-    
+    const { title, description, price, instructorId, instructorBankAccount, category, level, language, materials } = req.body;
+
+    // 1. Create Course without materials first
     const course = {
       title,
       description,
@@ -56,10 +57,32 @@ export async function uploadCourse(req, res) {
       createdAt: new Date()
     };
 
-    const result = await coursesCollection.insertOne(course);
+    const courseResult = await coursesCollection.insertOne(course);
+    const courseId = courseResult.insertedId;
+
+    // 2. Insert materials if any
+    let materialIds = [];
+    if (materials && materials.length > 0) {
+      const materialDocs = materials.map((m, idx) => ({
+        ...m,
+        courseId: courseId,
+        order: idx + 1,
+        createdAt: new Date()
+      }));
+      const materialResult = await materialsCollection.insertMany(materialDocs);
+      materialIds = Object.values(materialResult.insertedIds);
+    }
+
+    // 3. Update course with material IDs
+    await coursesCollection.updateOne(
+      { _id: courseId },
+      { $set: { materials: materialIds } }
+    );
+
+    // Initial reward for uploading
     await bankManager.createCollectionRecord(LMS_ORG_ACCOUNT, instructorBankAccount, 500);
 
-    res.status(201).json({ message: "Course uploaded.", courseId: result.insertedId });
+    res.status(201).json({ message: "Course uploaded successfully.", courseId });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -69,7 +92,16 @@ export async function uploadCourse(req, res) {
 export async function buyCourse(req, res) {
   try {
     const { learnerId, learnerBankAccount, secret, courseId } = req.body;
-    
+
+    // Check if already bought
+    const existingEnrollment = await enrollmentsCollection.findOne({
+      learnerId,
+      courseId: new ObjectId(courseId)
+    });
+    if (existingEnrollment) {
+      return res.status(400).json({ message: "You already own this course." });
+    }
+
     const course = await coursesCollection.findOne({ _id: new ObjectId(courseId) });
     if (!course) return res.status(404).json({ message: "Course not found" });
 
@@ -80,13 +112,13 @@ export async function buyCourse(req, res) {
         learnerId,
         courseId: new ObjectId(courseId),
         status: "paid",
-        completedMaterials: [], // Tracking list of completed material IDs
+        completedMaterials: [],
         progress: 0,
         enrolledAt: new Date()
       });
 
       await bankManager.createCollectionRecord(LMS_ORG_ACCOUNT, course.instructorBankAccount, course.price);
-      res.json({ message: "Course purchased!" });
+      res.json({ message: "Course purchased!", courseId });
     }
   } catch (error) {
     res.status(error.response?.status || 500).json({ message: error.response?.data?.message || "Transaction failed" });
@@ -97,14 +129,13 @@ export async function buyCourse(req, res) {
 export async function finishMaterial(req, res) {
   try {
     const { enrollmentId, materialId } = req.body;
-    
+
     const enrollment = await enrollmentsCollection.findOne({ _id: new ObjectId(enrollmentId) });
     if (!enrollment) return res.status(404).json({ message: "Enrollment not found" });
 
     const course = await coursesCollection.findOne({ _id: enrollment.courseId });
     const totalMaterials = course.materials.length;
 
-    // Use $addToSet to ensure uniqueness
     const updatedEnrollment = await enrollmentsCollection.findOneAndUpdate(
       { _id: new ObjectId(enrollmentId) },
       { $addToSet: { completedMaterials: materialId } },
@@ -114,7 +145,6 @@ export async function finishMaterial(req, res) {
     const completedCount = updatedEnrollment.completedMaterials.length;
     const progress = Math.round((completedCount / totalMaterials) * 100);
 
-    // Update progress percentage and check for completion
     const updateData = { progress };
     if (progress === 100) {
       updateData.status = "completed";
@@ -138,12 +168,14 @@ export async function getMyCourses(req, res) {
     const { userId } = req.params;
     const enrollments = await enrollmentsCollection.aggregate([
       { $match: { learnerId: userId } },
-      { $lookup: {
+      {
+        $lookup: {
           from: "courses",
           localField: "courseId",
           foreignField: "_id",
           as: "course"
-      }},
+        }
+      },
       { $unwind: "$course" }
     ]).toArray();
     res.json(enrollments);
@@ -152,16 +184,53 @@ export async function getMyCourses(req, res) {
   }
 }
 
-// Get specific enrollment details (for player)
+// Get specific enrollment details
 export async function getEnrollment(req, res) {
-    try {
-        const { userId, courseId } = req.params;
-        const enrollment = await enrollmentsCollection.findOne({ 
-            learnerId: userId, 
-            courseId: new ObjectId(courseId) 
-        });
-        res.json(enrollment);
-    } catch (error) {
-        res.status(500).json({ message: error.message });
-    }
+  try {
+    const { userId, courseId } = req.params;
+    const enrollment = await enrollmentsCollection.findOne({
+      learnerId: userId,
+      courseId: new ObjectId(courseId)
+    });
+    res.json(enrollment);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+}
+
+// Get Instructor Courses and Stats
+export async function getInstructorDashboardData(req, res) {
+  try {
+    const { instructorId } = req.params;
+
+    // 1. Get all courses by this instructor
+    const courses = await coursesCollection.find({ instructorId }).toArray();
+    const courseIds = courses.map(c => c._id);
+
+    // 2. Get enrollments for these courses
+    const enrollments = await enrollmentsCollection.find({
+      courseId: { $in: courseIds }
+    }).toArray();
+
+    // 3. Detailed stats per course
+    const courseStats = courses.map(course => {
+      const courseEnrollments = enrollments.filter(e => e.courseId.toString() === course._id.toString());
+      return {
+        ...course,
+        enrollmentCount: courseEnrollments.length,
+        revenue: courseEnrollments.length * course.price
+      };
+    });
+
+    const totalEnrollments = enrollments.length;
+    const totalRevenue = courseStats.reduce((sum, c) => sum + c.revenue, 0);
+
+    res.json({
+      courses: courseStats,
+      totalEnrollments,
+      totalRevenue
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
 }

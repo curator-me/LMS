@@ -21,7 +21,9 @@ export const courseApi = {
   myCourses: (userId) => api.get(`/course/my/${userId}`),
   getEnrollment: (userId, courseId) => api.get(`/course/enrollment/${userId}/${courseId}`),
   finishMaterial: (enrollmentId, materialId) => api.post('/course/finish-material', { enrollmentId, materialId }),
+  instructorDashboard: (instructorId) => api.get(`/course/instructor/${instructorId}`),
 };
+
 
 
 export default api;

@@ -10,7 +10,9 @@ router.post("/upload", controller.uploadCourse);
 router.post("/buy", controller.buyCourse);
 router.get("/my/:userId", controller.getMyCourses);
 router.get("/enrollment/:userId/:courseId", controller.getEnrollment);
+router.get("/instructor/:instructorId", controller.getInstructorDashboardData);
 router.post("/finish-material", controller.finishMaterial);
+
 // router.post("/complete", controller.completeCourse);
 
 

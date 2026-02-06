@@ -13,11 +13,14 @@ export async function signup(req, res) {
     const user = {
       name,
       email,
-      password, // In real app, hash this
+      password,
       role,
       phone,
       accountNumber: null,
       secret: null,
+      activityLog: [],
+      weeklyStreak: 0,
+      lastVisit: new Date(),
       createdAt: new Date()
     };
 
@@ -41,7 +44,33 @@ export async function login(req, res) {
       return res.status(401).json({ message: "Invalid email or password" });
     }
 
-    res.status(200).json(user);
+    // Update activity tracking
+    const now = new Date();
+    const lastVisit = user.lastVisit ? new Date(user.lastVisit) : null;
+    
+    let weeklyStreak = user.weeklyStreak || 0;
+    
+    if (lastVisit) {
+      const daysDiff = Math.floor((now - lastVisit) / (1000 * 60 * 60 * 24));
+      if (daysDiff === 1) {
+        weeklyStreak += 1;
+      } else if (daysDiff > 1) {
+        weeklyStreak = 1;
+      }
+    } else {
+      weeklyStreak = 1;
+    }
+
+    await usersCollection.updateOne(
+      { _id: user._id },
+      { 
+        $set: { lastVisit: now, weeklyStreak },
+        $push: { activityLog: { action: 'login', timestamp: now } }
+      }
+    );
+
+    const updatedUser = await usersCollection.findOne({ _id: user._id });
+    res.status(200).json(updatedUser);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -52,14 +81,12 @@ export async function setupBank(req, res) {
   try {
     const { email, accountNumber, secret } = req.body;
     
-    // 1. Validate with Bank Server first (verify the account exists in bank)
     try {
       await bankManager.validateAccount(accountNumber, secret);
     } catch (e) {
-      return res.status(400).json({ message: "Bank account validation failed. Ensure account exists and secret is correct." });
+      return res.status(400).json({ message: "Bank account validation failed." });
     }
 
-    // 2. Update LMS User
     const result = await usersCollection.findOneAndUpdate(
       { email },
       { $set: { accountNumber, secret } },
@@ -100,6 +127,24 @@ export async function getUserById(req, res) {
     if (!ObjectId.isValid(id)) return res.status(400).json({ message: "Invalid ID" });
     const user = await usersCollection.findOne({ _id: new ObjectId(id) });
     res.json(user);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+}
+
+// Get user activity stats
+export async function getUserStats(req, res) {
+  try {
+    const { userId } = req.params;
+    const user = await usersCollection.findOne({ _id: new ObjectId(userId) });
+    
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    res.json({
+      weeklyStreak: user.weeklyStreak || 0,
+      activityLog: user.activityLog || [],
+      lastVisit: user.lastVisit
+    });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
