@@ -1,15 +1,36 @@
-const mongoose = require("mongoose");
-require("dotenv").config();
+import { MongoClient, ServerApiVersion } from "mongodb";
 
-const connectDB = async () => {
+const uri = process.env.MONGO_URI;
+const client = new MongoClient(uri, {
+  serverApi: {
+    version: ServerApiVersion.v1,
+    strict: true,
+    deprecationErrors: true,
+  },
+});
+
+// Exported collections
+let usersCollection;
+
+export async function connectDB() {
   try {
-    await mongoose.connect(process.env.MONGO_URI);
+    await client.connect();
+    console.log("✅ Connected to MongoDB");
 
-    console.log("Connected to MongoDB");
-  } catch (err) {
-    console.log("MongoDB connection error: ", err);
+    const db = client.db(process.env.MONGO_DATABASE || "LMS");
+    usersCollection = db.collection("users");
+
+    return {
+      db,
+      usersCollection,
+    };
+  } catch (error) {
+    console.error("MongoDB connection failed:", error);
     process.exit(1);
   }
-};
+}
 
-module.exports = connectDB;
+// Export collections directly
+export {
+  usersCollection,
+};
