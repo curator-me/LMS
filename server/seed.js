@@ -60,6 +60,18 @@ async function seed() {
     instructorDocs.push({ ...ins, _id: res.insertedId });
   }
 
+  // 3.5 Create Admin
+  await usersCollection.insertOne({
+    name: "Admin Platform",
+    email: "ADMIN",
+    password: "admin",
+    secret: "admin",
+    role: "admin",
+    createdAt: new Date(),
+    activityLog: []
+  });
+
+
   // 4. Create Courses with Materials
   const courseData = [
     {

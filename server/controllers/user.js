@@ -126,7 +126,19 @@ export async function getUserById(req, res) {
     const { id } = req.params;
     if (!ObjectId.isValid(id)) return res.status(400).json({ message: "Invalid ID" });
     const user = await usersCollection.findOne({ _id: new ObjectId(id) });
-    res.json(user);
+    res.json({
+      _id: user._id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      phone: user.phone,
+      accountNumber: user.accountNumber,
+      // secret: user.secret,
+      activityLog: user.activityLog,
+      weeklyStreak: user.weeklyStreak,
+      lastVisit: user.lastVisit,
+      createdAt: user.createdAt
+    });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

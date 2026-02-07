@@ -18,8 +18,8 @@ export const CourseCard = ({ course, isEnrolled = false }) => (
         <Link
             to={isEnrolled ? `/player/${course._id}` : `/course/${course._id}`}
             className={`w-full py-4 rounded-2xl font-bold flex justify-center items-center gap-2 transition-all group text-center ${isEnrolled
-                    ? 'bg-emerald-600 text-white hover:bg-emerald-700'
-                    : 'bg-slate-900 text-white hover:bg-indigo-600'
+                ? 'bg-emerald-600 text-white hover:bg-emerald-700'
+                : 'bg-slate-900 text-white hover:bg-indigo-600'
                 }`}
         >
             {isEnrolled ? 'Continue Learning' : 'Enroll Now'} <ChevronRight size={18} className="group-hover:translate-x-1 transition-transform" />

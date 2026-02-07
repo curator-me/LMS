@@ -29,7 +29,7 @@ app.use(cors());
 app.post("/accounts/setup", async (req, res) => {
   try {
     const { accountNumber, secret, balance, accountType, currency, userId } = req.body;
-    
+
     const existing = await accountsCollection.findOne({ accountNumber });
     if (existing) return res.status(400).json({ message: "Account already exists" });
 
@@ -56,11 +56,11 @@ app.get("/accounts/balance/:accountNumber", async (req, res) => {
     const { accountNumber } = req.params;
     const account = await accountsCollection.findOne({ accountNumber });
     if (!account) return res.status(404).json({ message: "Account not found" });
-    
-    res.json({ 
-      balance: account.balance, 
+
+    res.json({
+      balance: account.balance,
       currency: account.currency,
-      status: account.status 
+      status: account.status
     });
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -100,20 +100,52 @@ app.post("/transfer", async (req, res) => {
   }
 });
 
-// 4. Create Transaction Record (LMS to Instructor)
-app.post("/transfer-records", async (req, res) => {
+// 5. Process Payout (Instructor collecting from LMS)
+app.post("/payout", async (req, res) => {
   try {
-    const { fromAccount, toAccount, amount } = req.body;
-    const record = {
-      from: fromAccount,
-      to: toAccount,
-      amount: parseFloat(amount),
-      type: "pending_collection",
-      timestamp: new Date(),
+    const { accountNumber, secret, transactionId } = req.body;
+    const { ObjectId } = await import("mongodb");
+
+    const account = await accountsCollection.findOne({ accountNumber, secret });
+    if (!account) return res.status(401).json({ message: "Invalid bank account credentials" });
+
+    const tx = await bankTransactionsCollection.findOne({
+      _id: new ObjectId(transactionId),
+      to: accountNumber,
       status: "pending"
-    };
-    const result = await bankTransactionsCollection.insertOne(record);
-    res.json({ message: "Pending transaction record created", recordId: result.insertedId });
+    });
+
+    if (!tx) return res.status(404).json({ message: "No pending transaction found for this account" });
+
+    const lmsAccount = await accountsCollection.findOne({ accountNumber: tx.from });
+    if (!lmsAccount || lmsAccount.balance < tx.amount) {
+      return res.status(400).json({ message: "Source account has insufficient funds for this payout" });
+    }
+
+    // Process the movement
+    await accountsCollection.updateOne({ accountNumber: tx.from }, { $inc: { balance: -tx.amount } });
+    await accountsCollection.updateOne({ accountNumber: tx.to }, { $inc: { balance: tx.amount } });
+
+    // Update status
+    await bankTransactionsCollection.updateOne(
+      { _id: new ObjectId(transactionId) },
+      { $set: { status: "completed", processedAt: new Date() } }
+    );
+
+    res.json({ message: "Payout successful", amount: tx.amount });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// 6. Get Transactions for an Account
+app.get("/transactions/:accountNumber", async (req, res) => {
+  try {
+    const { accountNumber } = req.params;
+    const txs = await bankTransactionsCollection.find({
+      $or: [{ from: accountNumber }, { to: accountNumber }]
+    }).sort({ timestamp: -1 }).toArray();
+    res.json(txs);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

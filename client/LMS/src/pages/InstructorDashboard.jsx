@@ -3,14 +3,14 @@ import { Link } from 'react-router-dom';
 import {
     CheckCircle, BookOpen, Award, Wallet, Lock, Play, Trophy,
     Clock, TrendingUp, Calendar, Flame, User, Mail, Phone,
-    CreditCard, PlusCircle, Trash2, Video, FileText, ChevronRight
+    CreditCard, PlusCircle, Trash2, Video, FileText, ChevronRight, Music, HelpCircle
 } from 'lucide-react';
 import { courseApi } from '../api';
 import { toast } from 'react-hot-toast';
 
 export const InstructorDashboard = ({ user, balance }) => {
     const [activeTab, setActiveTab] = useState('overview');
-    const [dashboardData, setDashboardData] = useState({ courses: [], totalEnrollments: 0, totalRevenue: 0 });
+    const [dashboardData, setDashboardData] = useState({ courses: [], totalEnrollments: 0, totalRevenue: 0, pendingPayouts: [] });
     const [loading, setLoading] = useState(true);
 
     // Upload Form State
@@ -61,14 +61,33 @@ export const InstructorDashboard = ({ user, balance }) => {
     };
 
     const handleUploadCourse = async (e) => {
+
         e.preventDefault();
         const loader = toast.loading("Uploading course...");
         try {
-            await courseApi.upload({
-                ...newCourse,
-                instructorId: user._id,
-                instructorBankAccount: user.accountNumber
+            const formData = new FormData();
+            formData.append('title', newCourse.title);
+            formData.append('description', newCourse.description);
+            formData.append('price', newCourse.price);
+            formData.append('category', newCourse.category);
+            formData.append('level', newCourse.level);
+            formData.append('language', newCourse.language);
+            formData.append('instructorId', user._id);
+            formData.append('instructorBankAccount', user.accountNumber);
+
+            const materialsForJson = newCourse.materials.map((m, idx) => {
+                const material = { ...m };
+                if (m.file) {
+                    formData.append(`file_${idx}`, m.file);
+                    delete material.file; // Don't send file object in JSON
+                }
+                return material;
             });
+
+            formData.append('materials', JSON.stringify(materialsForJson));
+
+            await courseApi.upload(formData);
+
             toast.success("Course uploaded! You received a 500 BDT bonus.", { id: loader });
             setNewCourse({
                 title: '', description: '', price: '', category: 'Web Development',
@@ -79,6 +98,24 @@ export const InstructorDashboard = ({ user, balance }) => {
             fetchDashboardData();
         } catch (err) {
             toast.error(err.response?.data?.message || "Upload failed", { id: loader });
+        }
+    };
+
+    const handlePayout = async (transactionId) => {
+        const secret = prompt("Enter your bank secret to authorize payout collection:");
+        if (!secret) return;
+
+        const loader = toast.loading("Processing payout...");
+        try {
+            await courseApi.payout({
+                instructorId: user._id,
+                secret,
+                transactionId
+            });
+            toast.success("Funds collected successfully!", { id: loader });
+            fetchDashboardData();
+        } catch (err) {
+            toast.error(err.response?.data?.message || "Payout failed", { id: loader });
         }
     };
 
@@ -103,6 +140,12 @@ export const InstructorDashboard = ({ user, balance }) => {
                             <PlusCircle size={20} /> Upload New Course
                         </button>
                         <button
+                            onClick={() => setActiveTab('financials')}
+                            className={`dashboard-nav ${activeTab === 'financials' ? 'active' : ''}`}
+                        >
+                            <Wallet size={20} /> Financials
+                        </button>
+                        <button
                             onClick={() => setActiveTab('profile')}
                             className={`dashboard-nav ${activeTab === 'profile' ? 'active' : ''}`}
                         >
@@ -113,6 +156,42 @@ export const InstructorDashboard = ({ user, balance }) => {
 
                 {/* Content */}
                 <div className="flex-1 space-y-8">
+                    {activeTab === 'financials' && (
+                        <div className="space-y-8">
+                            <div className="bg-white p-10 rounded-[3rem] shadow-xl border border-slate-100 font-sans">
+                                <h3 className="text-3xl font-black text-slate-900 mb-2">Pending Payouts</h3>
+                                <p className="text-slate-500 mb-8 font-medium italic">These earnings are ready to be collected into your bank account.</p>
+
+                                <div className="space-y-4">
+                                    {dashboardData.pendingPayouts?.map(p => (
+                                        <div key={p._id} className="p-6 bg-slate-50 rounded-3xl border border-slate-100 flex items-center justify-between group">
+                                            <div className="flex items-center gap-4">
+                                                <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-rose-600 shadow-sm">
+                                                    <TrendingUp size={24} />
+                                                </div>
+                                                <div>
+                                                    <p className="text-xl font-black text-slate-800">{p.amount} ৳</p>
+                                                    <p className="text-xs text-slate-400 font-bold uppercase tracking-widest">Available for Collection</p>
+                                                </div>
+                                            </div>
+                                            <button
+                                                onClick={() => handlePayout(p._id)}
+                                                className="bg-slate-900 text-white px-8 py-3 rounded-2xl font-black text-sm hover:bg-indigo-600 transition-all shadow-lg"
+                                            >
+                                                Collect Funds
+                                            </button>
+                                        </div>
+                                    ))}
+                                    {(!dashboardData.pendingPayouts || dashboardData.pendingPayouts.length === 0) && (
+                                        <div className="text-center py-20 bg-slate-50 rounded-[2rem] border border-dashed border-slate-200">
+                                            <Wallet className="mx-auto text-slate-200 mb-4" size={48} />
+                                            <p className="font-bold text-slate-400">No pending payouts at this time.</p>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    )}
                     {activeTab === 'overview' && (
                         <>
                             {/* Stats Cards */}
@@ -132,9 +211,14 @@ export const InstructorDashboard = ({ user, balance }) => {
                                 </div>
 
                                 <div className="bg-white p-8 rounded-[2.5rem] shadow-xl border border-slate-100 relative overflow-hidden group">
-                                    <p className="text-slate-400 font-bold uppercase tracking-widest text-[10px] mb-2">Courses Published</p>
-                                    <p className="text-4xl font-black text-slate-900">{dashboardData.courses.length}</p>
-                                    <BookOpen className="absolute -right-2 -bottom-2 text-slate-100 opacity-80 group-hover:scale-110 transition-all duration-500" size={80} />
+                                    <p className="text-slate-400 font-bold uppercase tracking-widest text-[10px] mb-2">Pending Collection</p>
+                                    <div className="flex items-end gap-2">
+                                        <p className="text-4xl font-black text-rose-600 font-mono">
+                                            {dashboardData.pendingPayouts?.reduce((sum, p) => sum + p.amount, 0)}
+                                        </p>
+                                        <p className="text-lg font-bold text-slate-400 pb-1">BDT</p>
+                                    </div>
+                                    <Clock className="absolute -right-2 -bottom-2 text-rose-100 opacity-80 group-hover:scale-110 transition-all duration-500" size={80} />
                                 </div>
                             </div>
 
@@ -275,11 +359,27 @@ export const InstructorDashboard = ({ user, balance }) => {
                                                     <div className="space-y-2">
                                                         <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2">Type</label>
                                                         <select
-                                                            value={m.type} onChange={e => handleMaterialChange(idx, 'type', e.target.value)}
+                                                            value={m.type} onChange={e => {
+                                                                const type = e.target.value;
+                                                                const updated = [...newCourse.materials];
+                                                                updated[idx] = { type, title: m.title };
+                                                                if (type === 'mcq') {
+                                                                    updated[idx].question = '';
+                                                                    updated[idx].options = ['', '', '', ''];
+                                                                    updated[idx].correctAnswer = '';
+                                                                } else if (type === 'text') {
+                                                                    updated[idx].content = '';
+                                                                } else {
+                                                                    updated[idx].file = null;
+                                                                }
+                                                                setNewCourse({ ...newCourse, materials: updated });
+                                                            }}
                                                             className="auth-input bg-white"
                                                         >
                                                             <option value="text">📄 Text Content</option>
-                                                            <option value="video">🎥 Video URL</option>
+                                                            <option value="video">🎥 Video Upload</option>
+                                                            <option value="audio">🎵 Audio Upload</option>
+                                                            <option value="mcq">❓ MCQ Quiz</option>
                                                         </select>
                                                     </div>
                                                     <div className="space-y-2">
@@ -291,19 +391,67 @@ export const InstructorDashboard = ({ user, balance }) => {
                                                     </div>
                                                 </div>
                                                 <div className="space-y-2">
-                                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2">
-                                                        {m.type === 'text' ? 'Content' : 'Video URL'}
-                                                    </label>
-                                                    {m.type === 'text' ? (
-                                                        <textarea
-                                                            required value={m.content} onChange={e => handleMaterialChange(idx, 'content', e.target.value)}
-                                                            className="auth-input bg-white min-h-[100px]" placeholder="Paste your text content here..."
-                                                        />
-                                                    ) : (
-                                                        <input
-                                                            required value={m.url || ''} onChange={e => handleMaterialChange(idx, 'url', e.target.value)}
-                                                            className="auth-input bg-white" placeholder="https://res.cloudinary.com/..."
-                                                        />
+                                                    {m.type === 'text' && (
+                                                        <>
+                                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2">Content</label>
+                                                            <textarea
+                                                                required value={m.content} onChange={e => handleMaterialChange(idx, 'content', e.target.value)}
+                                                                className="auth-input bg-white min-h-[100px]" placeholder="Paste your text content here..."
+                                                            />
+                                                        </>
+                                                    )}
+                                                    {(m.type === 'video' || m.type === 'audio') && (
+                                                        <>
+                                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2">
+                                                                Upload {m.type === 'video' ? 'Video' : 'Audio'} File
+                                                            </label>
+                                                            <input
+                                                                type="file"
+                                                                accept={m.type === 'video' ? 'video/*' : 'audio/*'}
+                                                                onChange={e => handleMaterialChange(idx, 'file', e.target.files[0])}
+                                                                className="auth-input bg-white pt-3"
+                                                                required
+                                                            />
+                                                            {m.file && <p className="text-xs text-emerald-600 mt-1 font-bold">Selected: {m.file.name}</p>}
+                                                        </>
+                                                    )}
+                                                    {m.type === 'mcq' && (
+                                                        <div className="space-y-4 bg-white p-6 rounded-2xl border border-slate-100">
+                                                            <div className="space-y-2">
+                                                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2">Question</label>
+                                                                <input
+                                                                    required value={m.question} onChange={e => handleMaterialChange(idx, 'question', e.target.value)}
+                                                                    className="auth-input" placeholder="Enter the question"
+                                                                />
+                                                            </div>
+                                                            <div className="grid grid-cols-2 gap-4">
+                                                                {m.options.map((opt, optIdx) => (
+                                                                    <div key={optIdx} className="space-y-2">
+                                                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2">Option {optIdx + 1}</label>
+                                                                        <input
+                                                                            required value={opt} onChange={e => {
+                                                                                const newOptions = [...m.options];
+                                                                                newOptions[optIdx] = e.target.value;
+                                                                                handleMaterialChange(idx, 'options', newOptions);
+                                                                            }}
+                                                                            className="auth-input" placeholder={`Option ${optIdx + 1}`}
+                                                                        />
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                            <div className="space-y-2">
+                                                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2">Correct Answer</label>
+                                                                <select
+                                                                    required value={m.correctAnswer} onChange={e => handleMaterialChange(idx, 'correctAnswer', e.target.value)}
+                                                                    className="auth-input"
+                                                                >
+                                                                    <option value="">Select Correct Option</option>
+                                                                    {m.options.map((opt, optIdx) => (
+                                                                        <option key={optIdx} value={opt}>{opt || `Option ${optIdx + 1}`}</option>
+                                                                    ))}
+                                                                </select>
+                                                            </div>
+                                                        </div>
                                                     )}
                                                 </div>
                                             </div>

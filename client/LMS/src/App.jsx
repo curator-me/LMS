@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { Toaster, toast } from 'react-hot-toast';
 import { Navbar } from './components/Navbar';
-import { Home, AuthPage, CourseDetails, CoursePlayer, LearningSession, Dashboard, InstructorDashboard } from './pages';
+import { Home, AuthPage, CourseDetails, CoursePlayer, LearningSession, Dashboard, InstructorDashboard, AdminDashboard } from './pages';
 import { authApi, courseApi } from './api';
 
 function MainApp() {
@@ -76,6 +76,9 @@ function MainApp() {
     if (!user) return <Navigate to="/login" />;
     if (user.role === 'instructor') {
       return <InstructorDashboard user={user} balance={balance} />;
+    }
+    if (user.role === 'admin' || user.email === 'ADMIN') {
+      return <AdminDashboard />;
     }
     return <Dashboard user={user} onSetupBank={handleSetupBank} balance={balance} />;
   };

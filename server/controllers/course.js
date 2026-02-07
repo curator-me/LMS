@@ -14,6 +14,8 @@ export async function getCourses(req, res) {
   }
 }
 
+
+
 // Get course by ID with materials
 export async function getCourseById(req, res) {
   try {
@@ -31,7 +33,12 @@ export async function getCourseById(req, res) {
       _id: { $in: (course.materials || []).map(mId => new ObjectId(mId)) }
     }).sort({ order: 1 }).toArray();
 
-    res.json({ ...course, materials });
+    // Fetch instructor info
+    const instructor = await usersCollection.findOne({
+      _id: ObjectId.isValid(course.instructorId) ? new ObjectId(course.instructorId) : course.instructorId
+    });
+
+    res.json({ ...course, materials, instructorName: instructor?.name || "Unknown Instructor" });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -40,7 +47,12 @@ export async function getCourseById(req, res) {
 // Instructor uploads course
 export async function uploadCourse(req, res) {
   try {
-    const { title, description, price, instructorId, instructorBankAccount, category, level, language, materials } = req.body;
+    let { title, description, price, instructorId, instructorBankAccount, category, level, language, materials } = req.body;
+
+    // Handle multipart form data if materials is a string
+    if (typeof materials === 'string') {
+      materials = JSON.parse(materials);
+    }
 
     // 1. Create Course without materials first
     const course = {
@@ -63,12 +75,26 @@ export async function uploadCourse(req, res) {
     // 2. Insert materials if any
     let materialIds = [];
     if (materials && materials.length > 0) {
-      const materialDocs = materials.map((m, idx) => ({
-        ...m,
-        courseId: courseId,
-        order: idx + 1,
-        createdAt: new Date()
-      }));
+      const materialDocs = materials.map((m, idx) => {
+        const materialDoc = {
+          ...m,
+          courseId: courseId,
+          order: idx + 1,
+          createdAt: new Date()
+        };
+
+        // Assign file URL if uploaded
+        if (req.files) {
+          const file = req.files.find(f => f.fieldname === `file_${idx}`);
+          if (file) {
+            // Local storage URL (commenting out Cloudinary as requested)
+            // materialDoc.url = `https://res.cloudinary.com/...`; 
+            materialDoc.url = `http://localhost:8000/storage/${file.mimetype.split("/")[0] === "audio" ? "audio" : "video"}/${file.filename}`;
+          }
+        }
+
+        return materialDoc;
+      });
       const materialResult = await materialsCollection.insertMany(materialDocs);
       materialIds = Object.values(materialResult.insertedIds);
     }
@@ -88,6 +114,7 @@ export async function uploadCourse(req, res) {
   }
 }
 
+
 // Learner buys course
 export async function buyCourse(req, res) {
   try {
@@ -98,12 +125,12 @@ export async function buyCourse(req, res) {
       learnerId,
       courseId: new ObjectId(courseId)
     });
+    const course = await coursesCollection.findOne({ _id: new ObjectId(courseId) });
+    if (!course) return res.status(404).json({ message: "Course not found" });
+
     if (existingEnrollment) {
       return res.status(400).json({ message: "You already own this course." });
     }
-
-    const course = await coursesCollection.findOne({ _id: new ObjectId(courseId) });
-    if (!course) return res.status(404).json({ message: "Course not found" });
 
     const bankRes = await bankManager.transfer(learnerBankAccount, secret, LMS_ORG_ACCOUNT, course.price);
 
@@ -225,12 +252,38 @@ export async function getInstructorDashboardData(req, res) {
     const totalEnrollments = enrollments.length;
     const totalRevenue = courseStats.reduce((sum, c) => sum + c.revenue, 0);
 
+    // 4. Get pending payouts from bank if instructor has account
+    let pendingPayouts = [];
+    const instructor = await usersCollection.findOne({ _id: new ObjectId(instructorId) });
+    if (instructor && instructor.accountNumber) {
+      pendingPayouts = await bankManager.getPendingEarnings(instructor.accountNumber);
+    }
+
     res.json({
       courses: courseStats,
       totalEnrollments,
-      totalRevenue
+      totalRevenue,
+      pendingPayouts
     });
   } catch (error) {
     res.status(500).json({ message: error.message });
+  }
+}
+
+export async function requestPayout(req, res) {
+  try {
+    const { instructorId, secret, transactionId } = req.body;
+
+    const instructor = await usersCollection.findOne({ _id: new ObjectId(instructorId) });
+    if (!instructor || !instructor.accountNumber) {
+      return res.status(400).json({ message: "Instructor bank account not found" });
+    }
+
+    const result = await bankManager.requestPayout(instructor.accountNumber, secret, transactionId);
+    res.json(result);
+  } catch (error) {
+    res.status(error.response?.status || 500).json({
+      message: error.response?.data?.message || error.message
+    });
   }
 }

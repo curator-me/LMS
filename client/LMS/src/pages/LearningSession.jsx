@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Navigate, Link } from 'react-router-dom';
-import { ChevronRight, Loader2, Video, FileText, HelpCircle, Volume2 } from 'lucide-react';
+import { ChevronRight, Loader2, Video, FileText, HelpCircle, Volume2, CheckCircle, Trophy } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { courseApi } from '../api';
 
@@ -11,6 +11,7 @@ export const LearningSession = ({ user }) => {
     const [loading, setLoading] = useState(true);
     const [finishing, setFinishing] = useState(false);
     const [selectedAnswers, setSelectedAnswers] = useState({});
+    const [quizResult, setQuizResult] = useState(null);
     const navigate = useNavigate();
 
     useEffect(() => {
@@ -22,6 +23,9 @@ export const LearningSession = ({ user }) => {
                 ]);
                 setCourse(cRes.data);
                 setEnrollment(eRes.data);
+                // Reset quiz result when material changes
+                setQuizResult(null);
+                setSelectedAnswers({});
             } catch (err) {
                 toast.error("Failed to load session");
             } finally {
@@ -31,27 +35,35 @@ export const LearningSession = ({ user }) => {
         fetchData();
     }, [courseId, user._id, materialIndex]);
 
+    const handleCheckQuiz = () => {
+        const material = course.materials[materialIndex];
+        const questions = material.questions || (material.question ? [{ question: material.question, options: material.options, correctAnswer: material.correctAnswer }] : []);
+
+        const allAnswered = questions.every((_, idx) =>
+            selectedAnswers[idx] !== undefined
+        );
+
+        if (!allAnswered) {
+            toast.error("Please answer all questions before checking");
+            return;
+        }
+
+        const correctCount = questions.filter((q, idx) => {
+            const selectedOpt = q.options[selectedAnswers[idx]];
+            return selectedOpt === q.correctAnswer || selectedAnswers[idx] === q.correctAnswer;
+        }).length;
+
+        const score = Math.round((correctCount / questions.length) * 100);
+        setQuizResult({ score, correctCount, total: questions.length });
+        toast.success(`Analysis complete! Score: ${score}%`);
+    };
+
     const handleNext = async () => {
         const currentMaterial = course.materials[materialIndex];
 
-        // Validate MCQ answers if material is MCQ type
-        if (currentMaterial.type === 'mcq') {
-            const allAnswered = currentMaterial.questions.every((_, idx) =>
-                selectedAnswers[idx] !== undefined
-            );
-
-            if (!allAnswered) {
-                toast.error("Please answer all questions before proceeding");
-                return;
-            }
-
-            // Check answers
-            const correctCount = currentMaterial.questions.filter((q, idx) =>
-                selectedAnswers[idx] === q.correctAnswer
-            ).length;
-
-            const score = Math.round((correctCount / currentMaterial.questions.length) * 100);
-            toast.success(`Quiz completed! Score: ${score}%`);
+        if (currentMaterial.type === 'mcq' && !quizResult) {
+            toast.error("Please check your answers before proceeding");
+            return;
         }
 
         setFinishing(true);
@@ -110,10 +122,11 @@ export const LearningSession = ({ user }) => {
                 );
 
             case 'mcq':
+                const questions = material.questions || (material.question ? [{ question: material.question, options: material.options, correctAnswer: material.correctAnswer }] : []);
                 return (
                     <div className="space-y-6 mb-8">
-                        {material.questions.map((question, qIdx) => (
-                            <div key={qIdx} className="bg-slate-50 p-8 rounded-[2.5rem]">
+                        {questions.map((question, qIdx) => (
+                            <div key={qIdx} className="bg-slate-50 p-8 rounded-[2.5rem] border border-slate-100">
                                 <div className="flex items-start gap-4 mb-6">
                                     <div className="w-10 h-10 bg-indigo-600 text-white rounded-full flex items-center justify-center font-black shrink-0">
                                         {qIdx + 1}
@@ -124,18 +137,55 @@ export const LearningSession = ({ user }) => {
                                     {question.options.map((option, oIdx) => (
                                         <button
                                             key={oIdx}
+                                            disabled={!!quizResult}
                                             onClick={() => setSelectedAnswers({ ...selectedAnswers, [qIdx]: oIdx })}
-                                            className={`w-full text-left p-4 rounded-2xl font-bold transition-all ${selectedAnswers[qIdx] === oIdx
-                                                    ? 'bg-indigo-600 text-white shadow-lg'
-                                                    : 'bg-white text-slate-700 hover:bg-slate-100'
+                                            className={`w-full text-left p-4 rounded-2xl font-bold transition-all border-2 ${selectedAnswers[qIdx] === oIdx
+                                                ? (quizResult
+                                                    ? (question.options[oIdx] === question.correctAnswer ? 'bg-emerald-500 border-emerald-500 text-white' : 'bg-rose-500 border-rose-500 text-white')
+                                                    : 'bg-indigo-600 border-indigo-600 text-white shadow-lg')
+                                                : (quizResult && question.options[oIdx] === question.correctAnswer ? 'bg-emerald-50 border-emerald-500 text-emerald-700' : 'bg-white border-transparent text-slate-700 hover:bg-slate-100')
                                                 }`}
                                         >
-                                            {String.fromCharCode(65 + oIdx)}. {option}
+                                            <div className="flex justify-between items-center">
+                                                <span>{String.fromCharCode(65 + oIdx)}. {option}</span>
+                                                {quizResult && question.options[oIdx] === question.correctAnswer && (
+                                                    <CheckCircle size={18} />
+                                                )}
+                                            </div>
                                         </button>
                                     ))}
                                 </div>
                             </div>
                         ))}
+
+                        {!quizResult ? (
+                            <button
+                                onClick={handleCheckQuiz}
+                                className="w-full bg-slate-900 text-white py-6 rounded-3xl font-black text-xl hover:bg-indigo-600 transition-all shadow-xl shadow-indigo-100"
+                            >
+                                Check Answers
+                            </button>
+                        ) : (
+                            <div className="bg-white p-10 rounded-[3rem] border border-slate-100 shadow-xl text-center">
+                                <div className={`inline-flex items-center justify-center w-20 h-20 rounded-full mb-4 ${quizResult.score >= 50 ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-600'}`}>
+                                    <Trophy size={40} />
+                                </div>
+                                <h4 className="text-3xl font-black text-slate-900 mb-2">Quiz Results</h4>
+                                <p className="text-slate-500 font-bold text-lg mb-6">
+                                    You scored <span className={quizResult.score >= 50 ? 'text-emerald-600' : 'text-rose-600'}>{quizResult.score}%</span>
+                                </p>
+                                <div className="flex justify-center gap-8">
+                                    <div>
+                                        <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Correct</p>
+                                        <p className="text-2xl font-black text-emerald-600">{quizResult.correctCount}</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Total</p>
+                                        <p className="text-2xl font-black text-slate-900">{quizResult.total}</p>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
                     </div>
                 );
 

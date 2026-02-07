@@ -71,9 +71,13 @@ export const CoursePlayer = ({ user }) => {
                             };
 
                             return (
-                                <div key={m._id} className="flex items-center justify-between p-5 bg-white rounded-2xl shadow-sm border border-slate-100">
+                                <Link
+                                    to={`/learn/${id}/${idx}`}
+                                    key={m._id}
+                                    className="flex items-center justify-between p-5 bg-white rounded-2xl shadow-sm border border-slate-100 hover:border-indigo-300 hover:shadow-md transition-all group"
+                                >
                                     <div className="flex items-center gap-4">
-                                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold text-sm ${isCompleted ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-100 text-slate-400'
+                                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold text-sm ${isCompleted ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-100 text-slate-400 group-hover:bg-indigo-100 group-hover:text-indigo-600'
                                             }`}>
                                             {isCompleted ? <CheckCircle size={16} /> : idx + 1}
                                         </div>
@@ -81,14 +85,14 @@ export const CoursePlayer = ({ user }) => {
                                             <span className={isCompleted ? 'text-slate-400' : 'text-indigo-600'}>
                                                 {getMaterialIcon()}
                                             </span>
-                                            <p className={`font-bold ${isCompleted ? 'text-slate-400' : 'text-slate-700'}`}>{m.title}</p>
+                                            <p className={`font-bold ${isCompleted ? 'text-slate-400' : 'text-slate-700'} group-hover:text-indigo-600`}>{m.title}</p>
                                         </div>
                                     </div>
                                     <span className={`text-[10px] font-black uppercase px-2 py-1 rounded-md ${isCompleted ? 'bg-emerald-50 text-emerald-500' : 'bg-indigo-50 text-indigo-500'
                                         }`}>
                                         {m.type}
                                     </span>
-                                </div>
+                                </Link>
                             );
                         })}
                     </div>

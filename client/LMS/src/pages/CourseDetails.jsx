@@ -38,7 +38,8 @@ export const CourseDetails = ({ onBuy, user }) => {
                                 <BarChart size={14} /> {course.level}
                             </span>
                         </div>
-                        <h1 className="text-4xl font-black text-slate-900 mb-4">{course.title}</h1>
+                        <h1 className="text-4xl font-black text-slate-900 mb-2">{course.title}</h1>
+                        <p className="text-indigo-600 font-bold mb-4">Instructor: {course.instructorName}</p>
                         <p className="text-slate-500 text-lg font-medium leading-relaxed mb-8">{course.description}</p>
 
                         <div className="space-y-4 pt-8 border-t border-slate-100">

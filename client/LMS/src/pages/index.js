@@ -5,4 +5,5 @@ export { CoursePlayer } from './CoursePlayer';
 export { LearningSession } from './LearningSession';
 export { Dashboard } from './Dashboard';
 export { InstructorDashboard } from './InstructorDashboard';
+export { AdminDashboard } from './AdminDashboard';
 

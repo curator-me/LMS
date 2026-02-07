@@ -5,6 +5,7 @@ import "dotenv/config";
 import { connectDB } from "./database/connectDb.js";
 import userRouter from "./routes/user.js";
 import courseRouter from "./routes/course.js";
+import adminRouter from "./routes/admin.js";
 
 
 const app = express();
@@ -19,10 +20,13 @@ app.use(
 
 );
 
+app.use("/storage", express.static("storage"));
+
+
 async function startServer() {
   try {
     await connectDB();
-    
+
     app.get("/", (req, res) => {
       res.status(200).json({
         status: "OK",
@@ -32,6 +36,7 @@ async function startServer() {
 
     app.use("/user", userRouter);
     app.use("/course", courseRouter);
+    app.use("/admin", adminRouter);
 
 
     if (process.env.NODE_ENV !== "test") {

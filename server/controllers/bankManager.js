@@ -39,5 +39,20 @@ export const bankManager = {
   getBalance: async (accountNumber) => {
     const res = await axios.get(`${BANK_URL}/accounts/balance/${accountNumber}`);
     return res.data;
+  },
+
+  getPendingEarnings: async (accountNumber) => {
+    const res = await axios.get(`${BANK_URL}/transactions/${accountNumber}`);
+    // Filter only pending items where this account is the receiver
+    return res.data.filter(tx => tx.to === accountNumber && tx.status === "pending" && tx.type === "pending_collection");
+  },
+
+  requestPayout: async (accountNumber, secret, transactionId) => {
+    const res = await axios.post(`${BANK_URL}/payout`, {
+      accountNumber,
+      secret,
+      transactionId
+    });
+    return res.data;
   }
 };

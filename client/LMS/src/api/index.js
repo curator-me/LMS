@@ -22,6 +22,11 @@ export const courseApi = {
   getEnrollment: (userId, courseId) => api.get(`/course/enrollment/${userId}/${courseId}`),
   finishMaterial: (enrollmentId, materialId) => api.post('/course/finish-material', { enrollmentId, materialId }),
   instructorDashboard: (instructorId) => api.get(`/course/instructor/${instructorId}`),
+  payout: (data) => api.post('/course/payout', data),
+};
+
+export const adminApi = {
+  getStats: () => api.get('/admin/stats'),
 };
 
 
