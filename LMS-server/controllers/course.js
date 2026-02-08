@@ -126,6 +126,7 @@ export async function buyCourse(req, res) {
       courseId: new ObjectId(courseId)
     });
     const course = await coursesCollection.findOne({ _id: new ObjectId(courseId) });
+    if (!course) console.log("course not found", courseId);
     if (!course) return res.status(404).json({ message: "Course not found" });
 
     if (existingEnrollment) {

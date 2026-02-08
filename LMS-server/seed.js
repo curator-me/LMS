@@ -31,7 +31,9 @@ async function seed() {
     { accountNumber: "ACC_MIKE", secret: "mike123", balance: 4000 },
     { accountNumber: "ACC_ALICE", secret: "alice123", balance: 6000 },
     { accountNumber: "ACC_BOB", secret: "bob123", balance: 7500 },
-    { accountNumber: "LEARNER_DEMO", secret: "pass123", balance: 2000 }
+    { accountNumber: "A", secret: "pass123", balance: 5000 },
+    { accountNumber: "B", secret: "pass123", balance: 5000 },
+    { accountNumber: "C", secret: "pass123", balance: 5000 }
   ];
 
   for (const acc of bankAccountsToSeed) {
@@ -42,7 +44,9 @@ async function seed() {
         currency: "BDT"
       });
       console.log(`Seeded bank account: ${acc.accountNumber}`);
-    } catch (e) { }
+    } catch (e) {
+      console.log(e);
+    }
   }
 
   // 3. Create Instructors

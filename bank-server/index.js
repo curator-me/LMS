@@ -100,7 +100,27 @@ app.post("/transfer", async (req, res) => {
   }
 });
 
-// 5. Process Payout (Instructor collecting from LMS)
+// 4. Create Transfer Record (LMS to Instructor - Pending Collection)
+app.post("/transfer-records", async (req, res) => {
+  try {
+    const { fromAccount, toAccount, amount } = req.body;
+    const value = parseFloat(amount);
+
+    const tx = {
+      from: fromAccount,
+      to: toAccount,
+      amount: value,
+      type: "pending_collection",
+      timestamp: new Date(),
+      status: "pending"
+    };
+    await bankTransactionsCollection.insertOne(tx);
+
+    res.status(201).json({ message: "Transfer record created", transactionId: tx._id });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
 app.post("/payout", async (req, res) => {
   try {
     const { accountNumber, secret, transactionId } = req.body;
