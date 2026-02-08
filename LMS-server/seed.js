@@ -90,7 +90,7 @@ async function seed() {
       instructorBankAccount: instructorDocs[0].accountNumber,
       materials: [
         { type: "text", title: "Intro to Node.js", content: "Node.js allows running JS on the server. It uses an event-driven, non-blocking I/O model that makes it lightweight and efficient.", order: 1 },
-        { type: "video", title: "Node.js Tutorial Video", url: "https://res.cloudinary.com/dk3yedyhs/video/upload/v1770401117/React_in_100_Seconds_ltslhu.mp4", duration: 100, order: 2 },
+        { type: "video", title: "Node.js Tutorial Video", url: "http://localhost:8000/storage/video/React-in-100-Seconds.mp4", duration: 100, order: 2 },
         { type: "text", title: "Understanding MongoDB", content: "MongoDB is a NoSQL database that stores data in JSON-like documents. It's highly scalable and flexible, perfect for modern applications.", order: 3 },
         {
           type: "mcq", title: "Node.js Basics Quiz", order: 4, questions: [
@@ -111,7 +111,7 @@ async function seed() {
       instructorId: instructorDocs[1]._id,
       instructorBankAccount: instructorDocs[1].accountNumber,
       materials: [
-        { type: "video", title: "React in 100 Seconds", url: "https://res.cloudinary.com/dk3yedyhs/video/upload/v1770401117/React_in_100_Seconds_ltslhu.mp4", duration: 100, order: 1 },
+        { type: "video", title: "React in 100 Seconds", url: "http://localhost:8000/storage/video/React-in-100-Seconds.mp4", duration: 100, order: 1 },
         { type: "text", title: "React Hooks", content: "Learn about useState, useEffect, and how they manage component lifecycles. Hooks revolutionized React development.", order: 2 },
         { type: "text", title: "Component Architecture", content: "How to structure your React apps effectively using atoms, molecules, and organisms pattern.", order: 3 },
         {
@@ -133,7 +133,7 @@ async function seed() {
       instructorId: instructorDocs[2]._id,
       instructorBankAccount: instructorDocs[2].accountNumber,
       materials: [
-        { type: "video", title: "Python in 100 Seconds", url: "https://res.cloudinary.com/dk3yedyhs/video/upload/v1770401469/Python_in_100_Seconds_mhvtf2.mp4", duration: 100, order: 1 },
+        { type: "video", title: "Python in 100 Seconds", url: "http://localhost:8000/storage/video/Python-in-100-Seconds.mp4", duration: 100, order: 1 },
         { type: "text", title: "NumPy Basics", content: "Efficiently handling multi-dimensional arrays with NumPy's powerful library. Essential for data science and machine learning.", order: 2 },
         { type: "text", title: "Intro to Neural Networks", content: "Understanding the biological inspiration and mathematical models behind neural networks. Learn how AI learns from data.", order: 3 },
         {

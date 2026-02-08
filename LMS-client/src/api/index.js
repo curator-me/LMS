@@ -20,6 +20,7 @@ export const courseApi = {
   complete: (enrollmentId) => api.post('/course/complete', { enrollmentId }),
   myCourses: (userId) => api.get(`/course/my/${userId}`),
   getEnrollment: (userId, courseId) => api.get(`/course/enrollment/${userId}/${courseId}`),
+  getEnrollmentStatus: (userId, courseId) => api.get(`/course/status/${userId}/${courseId}`),
   finishMaterial: (enrollmentId, materialId) => api.post('/course/finish-material', { enrollmentId, materialId }),
   instructorDashboard: (instructorId) => api.get(`/course/instructor/${instructorId}`),
   payout: (data) => api.post('/course/payout', data),

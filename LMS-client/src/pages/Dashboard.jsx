@@ -202,9 +202,12 @@ export const Dashboard = ({ user, onSetupBank, balance }) => {
                                                 Earned on {new Date(en.completedAt).toLocaleDateString()}
                                             </p>
                                         </div>
-                                        <button className="bg-white text-indigo-700 px-6 py-3 rounded-xl font-black text-sm mt-2 hover:bg-black hover:text-white transition-all">
-                                            Download PDF
-                                        </button>
+                                        <Link
+                                            to={`/certificate/${en.course._id}`}
+                                            className="bg-white text-indigo-700 px-6 py-3 rounded-xl font-black text-sm mt-2 hover:bg-black hover:text-white transition-all"
+                                        >
+                                            View Certificate
+                                        </Link>
                                     </div>
                                 ))}
                                 {myCourses.filter(en => en.status === 'completed').length === 0 && (

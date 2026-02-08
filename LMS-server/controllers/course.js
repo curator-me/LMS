@@ -142,7 +142,8 @@ export async function buyCourse(req, res) {
         status: "paid",
         completedMaterials: [],
         progress: 0,
-        enrolledAt: new Date()
+        enrolledAt: new Date(),
+        purchaseTransactionId: bankRes.transactionId // Store the transaction ID to check if instructor collected it
       });
 
       await bankManager.createCollectionRecord(LMS_ORG_ACCOUNT, course.instructorBankAccount, course.price);
@@ -281,10 +282,74 @@ export async function requestPayout(req, res) {
     }
 
     const result = await bankManager.requestPayout(instructor.accountNumber, secret, transactionId);
+
+    // After successful payout, update relevant enrollments if this was a course purchase
+    // Finding the transaction in bank server and updating LMS database might be better
+    // but for now we search for enrollments linked to this transaction or just check later.
+
     res.json(result);
   } catch (error) {
     res.status(error.response?.status || 500).json({
       message: error.response?.data?.message || error.message
     });
+  }
+}
+
+// Check if certificate is accessible
+export async function getEnrollmentStatus(req, res) {
+  try {
+    const { userId, courseId } = req.params;
+    if (!ObjectId.isValid(userId) && userId.length !== 24) {
+      return res.status(400).json({ message: "Invalid user ID segment" });
+    }
+    if (!ObjectId.isValid(courseId)) {
+      return res.status(400).json({ message: "Invalid course ID segment" });
+    }
+
+    // Extremely robust match for enrollment
+    const enrollment = await enrollmentsCollection.findOne({
+      $and: [
+        { $or: [{ learnerId: userId }, { learnerId: new ObjectId(userId) }] },
+        { $or: [{ courseId: courseId }, { courseId: new ObjectId(courseId) }] }
+      ]
+    });
+
+    if (!enrollment) {
+      console.log("CRITICAL: Enrollment not found in DB for:", { userId, courseId });
+      // Return 404 with a specific message so we know it hit THIS line
+      return res.status(404).json({ message: "No enrollment found for this user and course." });
+    }
+
+    const course = await coursesCollection.findOne({ _id: enrollment.courseId });
+    if (!course) return res.status(404).json({ message: "Course not found" });
+
+    const instructor = await usersCollection.findOne({
+      _id: ObjectId.isValid(course.instructorId) ? new ObjectId(course.instructorId) : course.instructorId
+    });
+
+    if (!instructor) {
+      return res.json({ ...enrollment, isCollected: true, instructorName: "System Instructor" });
+    }
+
+    // Check bank transactions
+    try {
+      const transactions = await bankManager.getTransactions(instructor.accountNumber);
+      const isCollected = !transactions.some(tx =>
+        tx.from === LMS_ORG_ACCOUNT &&
+        tx.status === "pending" &&
+        tx.amount === course.price
+      );
+
+      res.json({
+        ...enrollment,
+        isCollected,
+        instructorName: instructor.name
+      });
+    } catch (bankErr) {
+      // If bank fails, show "waiting" for safety or fallback
+      res.json({ ...enrollment, isCollected: false, instructorName: instructor.name });
+    }
+  } catch (error) {
+    res.status(500).json({ message: error.message });
   }
 }

@@ -25,14 +25,14 @@ const upload = multer({ storage });
 
 
 router.get("/", controller.getCourses);
-router.get("/:id", controller.getCourseById);
-router.post("/upload", upload.any(), controller.uploadCourse);
-
-
-router.post("/buy", controller.buyCourse);
 router.get("/my/:userId", controller.getMyCourses);
 router.get("/enrollment/:userId/:courseId", controller.getEnrollment);
+router.get("/status/:userId/:courseId", controller.getEnrollmentStatus);
 router.get("/instructor/:instructorId", controller.getInstructorDashboardData);
+router.get("/:id", controller.getCourseById);
+
+router.post("/upload", upload.any(), controller.uploadCourse);
+router.post("/buy", controller.buyCourse);
 router.post("/finish-material", controller.finishMaterial);
 router.post("/payout", controller.requestPayout);
 

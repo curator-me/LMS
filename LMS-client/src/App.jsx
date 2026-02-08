@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { Toaster, toast } from 'react-hot-toast';
 import { Navbar } from './components/Navbar';
-import { Home, AuthPage, CourseDetails, CoursePlayer, LearningSession, Dashboard, InstructorDashboard, AdminDashboard } from './pages';
+import { Home, AuthPage, CourseDetails, CoursePlayer, LearningSession, Dashboard, InstructorDashboard, AdminDashboard, CertificatePreview } from './pages';
 import { authApi, courseApi } from './api';
 
 function MainApp() {
@@ -102,6 +102,7 @@ function MainApp() {
         <Route path="/player/:id" element={user ? <CoursePlayer user={user} /> : <Navigate to="/login" />} />
         <Route path="/learn/:courseId/:materialIndex" element={user ? <LearningSession user={user} /> : <Navigate to="/login" />} />
         <Route path="/dashboard" element={renderDashboard()} />
+        <Route path="/certificate/:courseId" element={user ? <CertificatePreview user={user} /> : <Navigate to="/login" />} />
       </Routes>
     </div>
   );

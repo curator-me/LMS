@@ -50,9 +50,9 @@ export const CoursePlayer = ({ user }) => {
                         </p>
                     </div>
                     {enrollment.status === 'completed' && (
-                        <div className="bg-emerald-50 text-emerald-600 px-6 py-2 rounded-full font-black flex items-center gap-2">
+                        <Link to={`/certificate/${id}`} className="bg-emerald-50 text-emerald-600 px-6 py-2 rounded-full font-black flex items-center gap-2 hover:bg-emerald-100 transition-all">
                             <Trophy size={20} /> Graduate
-                        </div>
+                        </Link>
                     )}
                 </div>
 

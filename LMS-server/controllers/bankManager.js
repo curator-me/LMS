@@ -41,6 +41,10 @@ export const bankManager = {
     return res.data;
   },
 
+  getTransactions: async (accountNumber) => {
+    const res = await axios.get(`${BANK_URL}/transactions/${accountNumber}`);
+    return res.data;
+  },
   getPendingEarnings: async (accountNumber) => {
     const res = await axios.get(`${BANK_URL}/transactions/${accountNumber}`);
     // Filter only pending items where this account is the receiver

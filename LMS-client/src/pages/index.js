@@ -7,3 +7,4 @@ export { Dashboard } from './Dashboard';
 export { InstructorDashboard } from './InstructorDashboard';
 export { AdminDashboard } from './AdminDashboard';
 
+export { CertificatePreview } from './CertificatePreview';
